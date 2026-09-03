@@ -1,0 +1,7 @@
+# 検査対象のAABや作業ファイルを誤ってコミットしないため
+*.aab
+*.apk
+*.jks
+*.keystore
+keystore.properties
+__pycache__/
