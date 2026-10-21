@@ -1,13 +1,14 @@
 ---
 name: android-play-publish
-description: Androidアプリ（AAB）を Google Play Console で内部テスト→製品版の審査提出まで進める実戦手順。Play Console での公開・アップロード作業や、公開時のエラー（送信ボタンがグレー、16KBページサイズ、国／地域未選択、申告未完了、フォーム入力が保存されない等）に対処するときに使う。Console の UI と要件は頻繁に変わるため、使うたびに実画面と照合し、差異があればこのファイル自身を更新する。
+description: Androidアプリを作ってから Google Play で公開が完了するまでの実戦手順。ソースを GitHub の非公開リポジトリで管理し（commit 前の秘密情報検査つき）、ロゴ・アプリアイコン・フィーチャーグラフィックを Claude Design（Design キャンバス）で作って全サイズを書き出し、Play Console で内部テスト→製品版の審査送信→公開確認まで進める。「Androidアプリを Play に出したい」「ロゴ／アイコンを作って」、公開時のエラー（送信ボタンがグレー、16KBページサイズ、国／地域未選択、申告未完了、フォーム入力が保存されない等）で使う。Console の UI と要件は頻繁に変わるため、使うたびに実画面と照合し、差異があればこのファイル自身を更新する。
 ---
 
 # Android アプリを Google Play で公開する（実戦手順）
 
 法人アカウントで複数のアプリを新規公開・アップデートした実作業から起こした手順書です。
+アプリの作成から、非公開リポジトリでの管理、ロゴ作成、Play での公開完了までを扱います（全体の順番は §0-5）。
 
-**最終検証日: 2026-10-20** ／ 提供: 一般社団法人サーコミュニケーション（info@surc.online）
+**最終検証日: 2026-10-21** ／ 提供: 一般社団法人サーコミュニケーション（info@surc.online）
 
 ---
 
@@ -24,6 +25,7 @@ description: Androidアプリ（AAB）を Google Play Console で内部テスト
 | 連絡先メールアドレス | `＿＿＿＿＿＿＿＿` |
 | 法人／個人 | `＿＿＿＿＿＿＿＿` |
 | プライバシーポリシーの公開URL | `＿＿＿＿＿＿＿＿` |
+| GitHub のアカウント名（アプリの非公開リポジトリを作る先） | `＿＿＿＿＿＿＿＿` |
 
 > 個人名やプライベートのメールアドレスを使わないこと。ストアに公開される情報である。
 
@@ -59,6 +61,17 @@ git pull
 ```
 
 自分で編集した内容と衝突した場合は、**実画面で正しいほうを残す**こと。
+
+### 0-5. 全体の流れ（作成から公開完了まで）
+
+| # | 工程 | 節 | 終わりの判定 |
+|---|---|---|---|
+| 1 | アプリを作る。パッケージ名を決める | — | 実機で起動する |
+| 2 | **非公開リポジトリを作って初回 commit / push** | §2-2 | リポジトリが非公開、鍵ファイルが追跡されていない |
+| 3 | **ロゴ・アイコン・フィーチャーグラフィックを Claude Design で作る** | §2-1 | 1案に決まり、`make_icons.py` が PASS |
+| 4 | アイコンを組み込み、署名AABを作る（versionCode +1・R8 実機検証・16KB） | §2, §2-1 | `check16k.py` で問題なし、実機でアイコンを確認 → commit / push |
+| 5 | Play Console: 作成・申告・掲載・内部テスト・製品版・審査送信 | §3（アップデートは §4） | 公開の概要の「審査中の変更」に製品版のリリースがある |
+| 6 | 公開を確認し、**タグを付けて push** | §4, §2-2 | 製品版に「Google Play で公開」、タグが GitHub にある |
 
 ---
 
@@ -97,13 +110,76 @@ git pull
 - [ ] **16KBページサイズ対応**（ネイティブライブラリを含むアプリのみ・**製品版で必須**）。テスト版は通るのに製品版だけ弾かれる罠。付録の `check16k.py` で AAB 内の全 `.so` を実測する。arm64-v8a に `0x4000` 未満が1つでもあるとブロックされる。
   - **「実機で16KB警告が消えた」≠「Playの製品版チェックに合格」。** 必ず AAB を実測する。
 - [ ] **ストア素材**（製品版に必須。テスト版だけなら未完成でも通る）
-  - アイコン 512×512
-  - フィーチャーグラフィック 1024×500（**1枚だけ**。2枚入れると「画像が多すぎます」で保存できない）
+  - アイコン 512×512（§2-1 でロゴから作る）
+  - フィーチャーグラフィック 1024×500（**1枚だけ**。2枚入れると「画像が多すぎます」で保存できない。§2-1 で作る）
   - スマートフォンのスクリーンショット 2枚以上。**比率は 16:9 / 9:16 を厳守（1080×1920 で撮る）。** 縦長端末の 1080×2400（9:20）は、新しくアップロードすると「切り抜きが必要」と表示されて選べない（以前に登録済みの 9:20 画像は表示され続ける）
   - **7インチ・10インチのタブレット用スクリーンショット**（スマホ用の流用で受理された実績あり）
   - 説明文（簡単な説明・詳しい説明）
   - **プライバシーポリシーの公開URL**（先に用意する。無いと申告が完了せず作業が止まる）
   - フォアグラウンドサービスを使うなら、実演動画の YouTube 限定公開URL
+- [ ] ビルドに使ったソースが**非公開リポジトリに push 済み**（§2-2）。
+
+### 2-1. ロゴ・アイコン・ストア画像を Claude Design で作る
+
+**原則**: ロゴは Claude Design（claude.ai の **Design** キャンバス。Claude Code では Artifact ツールの Design タイプ）で **SVG（ベクター）** として作り、キャンバス上で1案に決める → 同じ SVG をアプリのリポジトリの `brand/` に正本として保存 → 同梱の `make_icons.py` で全サイズを書き出して検品する。画像生成AIのラスター画像をそのまま使わない（縮小・モノクロ化・修正が効かない）。
+
+#### 公式仕様（2026-10-21 確認）
+
+| 素材 | 仕様 | 出典 |
+|---|---|---|
+| Play 掲載アイコン | 512×512、32bit PNG（アルファ可）、sRGB、1024KB 以下。**全面の正方形で角丸にしない・影を付けない**（Play が角丸＝サイズの30%と影を付ける）。透明部分は Play の背景色が透けるので背景は不透明に | [Google Play icon design specifications](https://developer.android.com/distribute/google-play/resources/icon-design-specifications)、[Play Console ヘルプ 9866151](https://support.google.com/googleplay/android-developer/answer/9866151) |
+| フィーチャーグラフィック | 1024×500、JPEG か 24bit PNG（**アルファなし**） | 同ヘルプ 9866151 |
+| アダプティブアイコン（API 26+） | 背景・前景（＋任意でモノクロ）の各層 108×108dp。**ロゴは中央 66×66dp の安全域に収める**（外周 18dp は端末のマスク・視覚効果用に切られる）。ロゴは 48dp 以上推奨 | [Adaptive icons](https://developer.android.com/develop/ui/views/launch/icon_design_adaptive) |
+| テーマアイコン（Android 13+） | `<monochrome>` 層。色は無視され、アルファだけが壁紙の色で塗られる。Android 16 QPR2 以降は未提供でも自動でテーマ化される | 同上 |
+| 旧来アイコン（API 24–25） | 48dp（mdpi 48／hdpi 72／xhdpi 96／xxhdpi 144／xxxhdpi 192 px）。**minSdk 24 なら必要** | Android の密度区分（`make_icons.py` が出力） |
+
+#### 手順
+
+1. **要件を決める**: アプリ名・何をするアプリか・利用者・色の希望・避けたいもの。答えが無ければアプリの内容から決め、前提を1行で示して進める。
+2. **キャンバスを作る**: Claude Code なら Artifact ツールの `action:"quickstart", intent:"design"` → 返った Design の `type_url` で publish（`title`＝「<アプリ名> ロゴ」）。返り値に型の指示（アートボード `.dc.html` の書き方）が付くので、それに従う。**2回目以降は同じ URL を更新し、キャンバスを作り直さない。** キャンバスの URL は `brand/README.md` に書いておく。
+   - Design キャンバスが使えない環境では、SVG を手元で書き、手順5の `preview-masks.png` を見ながら決めてよい。
+3. **アートボード構成**:
+   | ファイル | サイズ | 中身 |
+   |---|---|---|
+   | `Main.dc.html` | 1280×560 | ロゴ案3つを並べた比較（アイコン形＋アプリ名）。ここで1案を選ぶ |
+   | `Icon.dc.html` | 432×432 | 決定案のアダプティブアイコン（108dp を4倍）。前景 SVG は `viewBox="0 0 108 108"`、ロゴは中央の円（中心54,54・半径33）の内側 |
+   | `Mono.dc.html` | 432×432 | テーマアイコン用の単色シルエット（細部を落とし、塗りの形だけで読めるように） |
+   | `Feature.dc.html` | 1024×500 | フィーチャーグラフィック（ロゴ＋アプリ名＋一言）。架空の評価・受賞・数値は書かない |
+   - 前景の SVG は**インライン `<svg>`** で書き、文字はパス化するかシステムフォントにする（後で `<img>` として描くと外部フォントが読まれないため）。
+4. **正本を保存**: 決まった SVG をアプリのリポジトリの `brand/` に保存する:
+   `logo-fg.svg`（前景・透明背景・viewBox 0 0 108 108）／背景色 `#RRGGBB` か `logo-bg.svg`／`logo-mono.svg`／`feature.html`（1024×500 の単体 HTML。Web フォントはここで `<link>` してよい）。
+   キャンバスを手で直した場合は、Artifact ツールの `action:"read", path:"project/Icon.dc.html"` で読み、`<svg>…</svg>` を抜き出して保存し直す（キャンバス側が正）。
+5. **書き出しと検品**:
+   ```
+   python <このスキルのフォルダ>/make_icons.py --fg brand/logo-fg.svg --bg "#RRGGBB" --mono brand/logo-mono.svg --feature brand/feature.html --out brand/out
+   ```
+   - 出力: `brand/out/play/icon-512.png`・`feature-1024x500.png`、`brand/out/res/mipmap-*/ic_launcher{,_round,_foreground,_background,_monochrome}.png`、`mipmap-anydpi-v26/ic_launcher{,_round}.xml`。
+   - 検品（自動）: 全出力ファイルの有無・サイズ・色モード（512=RGBA／フィーチャー=RGB）・1024KB 上限・背景の不透明・前景が空でないこと・**前景が安全域からはみ出していないか**。1つでも NG なら終了コード1 → SVG を直して再実行。
+   - `brand/out/preview-masks.png`（円／角丸／Play 表示／テーマアイコン）を目で見て、欠け・小さすぎ・つぶれが無いか確かめる。
+   - 必要なもの: Python 3 ＋ Pillow、Chrome か Edge（headless で描画する。見つからなければ環境変数 `CHROME_PATH`）。Play 用 512 だけ別デザインにしたいときは `--play-icon` で渡す。
+6. **アプリに組み込む**: `brand/out/res/` を `app/src/main/res/` へ上書きコピー。テンプレートの **`mipmap-*/ic_launcher*.webp` と `drawable/ic_launcher_background.xml`・`drawable(-v24)/ic_launcher_foreground.xml` は削除**する（同名の webp が残ると Duplicate resources でビルドが落ちる）。Manifest は `android:icon="@mipmap/ic_launcher"`・`android:roundIcon="@mipmap/ic_launcher_round"`。実機のホーム画面・テーマアイコン ON でも確認する。
+   - TWA（Bubblewrap）は `twa-manifest.json` の `iconUrl`／`maskableIconUrl` に公開サイト上の 512 PNG を指定して `bubblewrap update`。
+7. **Play に載せる**: `icon-512.png` →「アプリのアイコン」、`feature-1024x500.png` →「フィーチャー グラフィック」（§3-3）。
+8. `brand/`（SVG の正本・`out/`）を commit / push（§2-2）。
+
+### 2-2. ソースを GitHub の非公開リポジトリで管理する
+
+アプリのソースは**非公開（private）リポジトリ**で管理する。署名鍵とパスワードは**非公開リポジトリにも入れない**（鍵は §2 のとおり別にバックアップ）。
+
+1. **初回（アプリを作った直後）**:
+   - `.gitignore` に最低限これを入れる: `*.jks` `*.keystore` `keystore.properties` `local.properties` `*.aab` `*.apk` `build/` `.gradle/` `.idea/` `.kotlin/` `*.iml` `.cxx/` `captures/` `*.pem` `*.p12` `.env` `*service-account*.json`。ほかにも鍵・証明書・資格情報のファイルがあれば足す（google-services.json は運用に合わせて判断）。
+   - 次の順で進める（**検査は `git add` の後・commit の前**。追跡前のファイルは検査に掛からないため）:
+     1. `git init -b main` → `git add -A`
+     2. `git status --short` で鍵・AAB・`local.properties` が入っていないことを見る
+     3. `python <このスキルのフォルダ>/scan_secrets.py`（同梱）が終了コード 0 で「OK」と出ること。index の中身を調べ、①鍵・AAB・`keystore.properties`・`local.properties`・`.env` などのファイル ②秘密鍵・Google API キー・Anthropic/OpenAI キー・GitHub トークン ③`*.gradle(.kts)`／`*.properties` のパスワード直書き、を見つける（`keystoreProperties["storePassword"]` や `System.getenv(...)` のような**読み込むだけの行は当たらない**）。検査は Python の中で行うので、PowerShell でも bash でも同じ結果になる
+     4. 見つかったら `git rm --cached <file>` で外すか値を消し、`.gitignore` に足して 2 からやり直す
+     5. `git commit -m "初版: <アプリ名>"` → `gh repo create <GitHubアカウント>/<リポジトリ名> --private --source . --remote origin --push`
+   - **push 後に `gh repo view <GitHubアカウント>/<リポジトリ名> --json visibility` が `PRIVATE` であることを確認**。PUBLIC になっていたら、それ以上 push せず利用者に知らせる。
+2. **区切りごとに commit / push**: ロゴ確定（`brand/` 追加）／アイコン組み込み／versionCode を上げてリリースビルドした時（例 `release: v1.2.0 (vc5)`）／審査で直した時。
+   - 毎回 `git add` の後に `scan_secrets.py` を通してから commit する。
+   - push 前に `git fetch` し、GitHub 側が進んでいたら push せずに知らせる（force push はしない）。
+3. **公開を確認したら**（§4「公開されたかを確かめる」で「Google Play で公開」を見てから）: `git tag -a vX.Y.Z -m "Google Play 公開 vX.Y.Z (vcN)"` → `git push origin vX.Y.Z`。どの版がどのコミットからビルドされたかを後から辿れるようにするため。
+4. 既存リポジトリがある場合は 1 を飛ばし、非公開であることだけ確かめる。
 
 ---
 
@@ -296,6 +372,9 @@ Google が年次・随時で変える。**着手時に実画面と公式ドキ�
 | ストア掲載エディタ | `…/store-listings/default/edit`。「アセット → レビュー」の2ステップ、レビューに**AI アセットの申告（必須）** | 2026-10-20 | UI 改装・AI 関連の申告が増えつつある |
 | minSdk の実質下限 | **24**（「自動保護」が既定で有効なため） | 2026-10-13 | 自動保護の要件が変わりうる |
 | データセーフティの更新 | 「CSV にエクスポート」→ 編集 →「CSV からインポート」で一括更新できる | 2026-10-12 | 形式・ID が変わりうる |
+| Play 掲載アイコン・フィーチャーの仕様 | 512×512 32bit PNG・1024KB 以下・角丸/影なし（Play が30%角丸と影を付ける）／1024×500 JPEG か 24bit PNG（アルファなし） | 2026-10-21 | 仕様ページが改訂されうる（§2-1 の出典で確認） |
+| アダプティブ／テーマアイコン | 108dp 層・安全域 66dp・`<monochrome>` は Android 13+。Android 16 QPR2 以降は未提供でも自動テーマ化 | 2026-10-21 | OS の版ごとに扱いが変わる |
+| Claude Design（Design キャンバス）の作り方 | Artifact ツールで `quickstart intent:"design"` → `type_url` で publish → 型の指示どおり `project/*.dc.html` と `project/canvas.json` を送る | 2026-10-21 | 型の版で書き方が変わる。毎回作成時に返る指示に従う |
 
 ---
 
@@ -336,9 +415,28 @@ python check16k.py path/to/app-release.aab
 同じフォルダの `check16k.py` を参照。AAB を展開して各 `.so` の ELF ヘッダを読み、
 `PT_LOAD` セグメントの `p_align` を実測する。arm64-v8a に `0x4000` 未満があれば製品版でブロックされる。
 
+## 付録: make_icons.py（ロゴ SVG からアイコン一式を書き出す）
+
+```
+python make_icons.py --fg logo-fg.svg --bg "#RRGGBB" [--mono logo-mono.svg] [--feature feature.html] [--play-icon icon.svg] --out out
+```
+
+同じフォルダの `make_icons.py` を参照（§2-1）。Play 掲載用の 512 アイコンとフィーチャーグラフィック、`mipmap-*` の全密度（アダプティブの3層・旧来の角丸／円）、`mipmap-anydpi-v26` の XML を書き出し、サイズ・色モード・安全域のはみ出し・透明な背景を検査する。問題があれば終了コード 1。要 Python 3 ＋ Pillow、Chrome か Edge。
+
+## 付録: scan_secrets.py（commit 前の秘密情報検査）
+
+```
+git add -A
+python scan_secrets.py
+```
+
+同じフォルダの `scan_secrets.py` を参照（§2-2）。git の index を読み、追跡してはいけないファイル（鍵・AAB・`keystore.properties` 等）、鍵・トークン、Gradle／properties のパスワード直書きを見つける。見つかれば終了コード 1（値そのものは表示しない）。
+
 ---
 
 ## 変更履歴
+
+- **2026-10-21** 範囲を「アプリ作成 → 公開完了」に拡張。新設: §0-5 全体の流れ、§2-1 ロゴ・アイコン・フィーチャーグラフィックを Claude Design（Design キャンバス）で SVG として作り `make_icons.py`（新規同梱）で全サイズを書き出して検品する手順（公式仕様の出典つき）、§2-2 ソースを GitHub の非公開リポジトリで管理する手順（`scan_secrets.py`（新規同梱）による commit 前の検査・非公開の確認・公開後のタグ）。§0-1 の記入欄に GitHub アカウントを追加。
 
 - **2026-10-20** 9月以降の実作業（既存アプリ複数の多言語化・アップデート提出）の観測を反映。新設: 掲載情報の多言語化の手順（言語の追加・画像の継承・重複画像の無視・リリースノートの言語）、掲載だけの変更を保存して後でまとめて送る方法、公開されたかの確かめ方。追加: スマホ用スクショは 16:9 / 9:16 厳守、掲載エディタの新UI（`store-listings/default/edit`・AI アセットの申告）、minSdk 24（自動保護）、確認ステップの見出しが警告だけでもエラー表示になる件、データセーフティの CSV 更新、AI 代行時の注意（バックグラウンドで描画が止まる・ブラウザの共有・アップロード完了の判定）。
 
